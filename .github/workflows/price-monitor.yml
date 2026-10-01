@@ -36,7 +36,7 @@ jobs:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: |
-          python price_monitor.py
+          python parsePrice.py
 
       - name: Commit price history
         run: |

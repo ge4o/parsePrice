@@ -31,59 +31,13 @@ jobs:
           pip install seleniumbase requests
           seleniumbase install chromedriver
 
-      - name: Check Telegram settings
-        env:
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.CHAT_ID }}
-        run: |
-          if [ -z "$BOT_TOKEN" ]; then
-            echo "ERROR: BOT_TOKEN is empty"
-            exit 1
-          fi
-
-          if [ -z "$CHAT_ID" ]; then
-            echo "ERROR: CHAT_ID is empty"
-            exit 1
-          fi
-
-          echo "BOT_TOKEN: configured"
-          echo "CHAT_ID: configured"
-
-      - name: Test Telegram
-        env:
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.CHAT_ID }}
-        run: |
-          python - <<'PY'
-          import os
-          import requests
-
-          token = os.environ["BOT_TOKEN"]
-          chat_id = os.environ["CHAT_ID"]
-
-          url = f"https://api.telegram.org/bot{token}/sendMessage"
-
-          response = requests.post(
-              url,
-              data={
-                  "chat_id": chat_id,
-                  "text": "Тестовое сообщение из GitHub Actions"
-              },
-              timeout=30
-          )
-
-          print("HTTP:", response.status_code)
-          print("Telegram:", response.text)
-
-          response.raise_for_status()
-          PY
 
       - name: Run price monitor
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: |
-          python price_monitor.py
+          python parsePrice.py
 
       - name: Commit price history
         run: |

@@ -1,0 +1,17 @@
+{
+  "check_interval": 3600,
+  "products": [
+    {
+      "name": "Стол Hoff Borg Radial 140",
+      "url": "https://hoff.ru/catalog/kuhnya/obedennye_gruppy/kuhonnye_stoly/stol_razdvizhnoy_borg_radial_140_id9909393/?articul=80611269",
+      "site": "hoff",
+      "selector": ".price-actual"
+    },
+    {
+      "name": "Нумо-Мини 120",
+      "url": "https://www.divan.ru/product/divan-numo-mini-textile-yellow",
+      "site": "divan.ru",
+      "selector": "[data-testid='price']"
+    }
+  ]
+}

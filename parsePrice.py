@@ -577,7 +577,6 @@ def monitor_once():
                     f"   ⏸️ Без изменений: "
                     f"{format_price(price)}"
                 )
-                send_telegram_message("Без изменений")
 
             # ------------------------------------------------
             # HISTORY
@@ -593,6 +592,7 @@ def monitor_once():
 
     print()
     print("💾 История сохранена")
+    send_telegram_message("Сработал")
 
 
 # ============================================================

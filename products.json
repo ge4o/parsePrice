@@ -13,5 +13,12 @@
       "site": "divan.ru",
       "selector": "[data-testid='price']"
     }
+    {
+      "name": "Кеды",
+      "url": " https://www.ozon.ru/product/kedy-naturalnaya-kozha-3033146540/?at=1oKo1VzrGtpoGBr05oFw1rMpq9Hpjefr&sh=tcBWuC_khg",
+      "site": "ozon.ru",
+      "selector": ".tsHeadline600Large"
+     
+    }
   ]
 }

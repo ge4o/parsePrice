@@ -328,20 +328,154 @@ def parse_hoff(sb, product):
     )
 
 
-def parse_ozon(sb, product):
 
-    return parse_price_generic(
-        sb,
-        product["url"],
-        product.get(
-            "selector",
-            ".tsHeadline600Large"
-        ),
-        wait=product.get(
-            "wait",
-            25
-        ),
+def parse_ozon(sb, product):
+    url = product["url"]
+    wait = product.get("wait", 25)
+
+    print("    🟠 Специальный парсер Ozon")
+
+    sb.uc_open_with_reconnect(
+        url,
+        UC_RECONNECT_DELAY
     )
+
+    time.sleep(3)
+
+    selectors = [
+        "div[data-widget^='webPrice']",
+        "[id^='state-webPrice-']",
+        "[data-state*='isAvailable']",
+        ".tsHeadline600Large",
+    ]
+
+    for selector in selectors:
+        try:
+            elements = sb.find_elements(
+                By.CSS_SELECTOR,
+                selector
+            )
+
+            for el in elements:
+                # 1. Проверяем JSON в data-state
+                state = el.get_attribute("data-state")
+
+                if state:
+                    try:
+                        data = json.loads(state)
+
+                        for key in ("price", "finalPrice"):
+                            value = data.get(key)
+
+                            if value:
+                                price = clean_price(str(value))
+
+                                if price is not None:
+                                    print(
+                                        f"    💰 Ozon data-state: "
+                                        f"{value} -> {price}"
+                                    )
+                                    return price
+
+                    except (ValueError, TypeError):
+                        pass
+
+                # 2. Проверяем текст элемента
+                text = el.text.strip()
+
+                if text:
+                    print(
+                        f"    🔎 Ozon [{selector}]: "
+                        f"{text[:200]!r}"
+                    )
+
+                    # Ищем цену с символом рубля,
+                    # чтобы не принять артикул за цену.
+                    match = re.search(
+                        r"([\d\s\u00a0\u2009\u202f.,]+)\s*₽",
+                        text
+                    )
+
+                    if match:
+                        price = clean_price(match.group(1))
+
+                        if price is not None:
+                            print(
+                                f"    💰 Цена Ozon: {price}"
+                            )
+                            return price
+
+        except Exception as e:
+            print(
+                f"    ⚠️ Селектор {selector}: {e}"
+            )
+
+    # Ждём появления цены, если страница загружается медленно
+    try:
+        WebDriverWait(sb.driver, wait).until(
+            lambda driver: driver.find_elements(
+                By.CSS_SELECTOR,
+                "div[data-widget^='webPrice'], "
+                "[id^='state-webPrice-']"
+            )
+        )
+
+        for selector in (
+            "div[data-widget^='webPrice']",
+            "[id^='state-webPrice-']",
+        ):
+            for el in sb.find_elements(
+                By.CSS_SELECTOR,
+                selector
+            ):
+                state = el.get_attribute("data-state")
+
+                if state:
+                    try:
+                        data = json.loads(state)
+                        value = data.get("price")
+
+                        if value:
+                            price = clean_price(str(value))
+
+                            if price is not None:
+                                print(
+                                    f"    💰 Цена Ozon: {price}"
+                                )
+                                return price
+                    except (ValueError, TypeError):
+                        pass
+
+                text = el.text.strip()
+                match = re.search(
+                    r"([\d\s\u00a0\u2009\u202f.,]+)\s*₽",
+                    text
+                )
+
+                if match:
+                    price = clean_price(match.group(1))
+
+                    if price is not None:
+                        return price
+
+    except Exception as e:
+        print(f"    ⚠️ Ожидание цены Ozon: {e}")
+
+    # Диагностика: выясняем, что реально открылось
+    try:
+        title = sb.driver.title
+        body = sb.driver.find_element(
+            By.TAG_NAME, "body"
+        ).text
+
+        print(f"    📄 Заголовок страницы: {title}")
+        print(f"    📄 Текст страницы: {body[:700]!r}")
+
+    except Exception as e:
+        print(f"    ⚠️ Не удалось прочитать страницу: {e}")
+
+    return None
+
 
 
 def parse_wb(sb, product):

@@ -335,7 +335,7 @@ def parse_ozon(sb, product):
         product["url"],
         product.get(
             "selector",
-            "[data-widget='webPrice']"
+            ".tsHeadline600Large"
         ),
         wait=product.get(
             "wait",

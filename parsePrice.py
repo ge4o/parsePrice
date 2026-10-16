@@ -11,6 +11,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from seleniumbase import SB
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+
 
 
 # ============================================================
@@ -326,152 +328,130 @@ def parse_hoff(sb, product):
             10
         ),
     )
+
 def parse_ozon(sb, product):
     url = product["url"]
     wait = product.get("wait", 25)
 
-    print("    🟠 Специальный парсер Ozon")
-
-    sb.uc_open_with_reconnect(
-        url,
-        UC_RECONNECT_DELAY
-    )
-
-    time.sleep(3)
+    print("    🟠 Ozon: запуск Playwright")
 
     selectors = [
         "div[data-widget^='webPrice']",
         "[id^='state-webPrice-']",
-        "[data-state*='isAvailable']",
         ".tsHeadline600Large",
     ]
 
-    for selector in selectors:
-        try:
-            elements = sb.find_elements(
-                By.CSS_SELECTOR,
-                selector
-            )
-
-            for el in elements:
-                # 1. Проверяем JSON в data-state
-                state = el.get_attribute("data-state")
-
-                if state:
-                    try:
-                        data = json.loads(state)
-
-                        for key in ("price", "finalPrice"):
-                            value = data.get(key)
-
-                            if value:
-                                price = clean_price(str(value))
-
-                                if price is not None:
-                                    print(
-                                        f"    💰 Ozon data-state: "
-                                        f"{value} -> {price}"
-                                    )
-                                    return price
-
-                    except (ValueError, TypeError):
-                        pass
-
-                # 2. Проверяем текст элемента
-                text = el.text.strip()
-
-                if text:
-                    print(
-                        f"    🔎 Ozon [{selector}]: "
-                        f"{text[:200]!r}"
-                    )
-
-                    # Ищем цену с символом рубля,
-                    # чтобы не принять артикул за цену.
-                    match = re.search(
-                        r"([\d\s\u00a0\u2009\u202f.,]+)\s*₽",
-                        text
-                    )
-
-                    if match:
-                        price = clean_price(match.group(1))
-
-                        if price is not None:
-                            print(
-                                f"    💰 Цена Ozon: {price}"
-                            )
-                            return price
-
-        except Exception as e:
-            print(
-                f"    ⚠️ Селектор {selector}: {e}"
-            )
-
-    # Ждём появления цены, если страница загружается медленно
     try:
-        WebDriverWait(sb.driver, wait).until(
-            lambda driver: driver.find_elements(
-                By.CSS_SELECTOR,
-                "div[data-widget^='webPrice'], "
-                "[id^='state-webPrice-']"
-            )
-        )
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
 
-        for selector in (
-            "div[data-widget^='webPrice']",
-            "[id^='state-webPrice-']",
-        ):
-            for el in sb.find_elements(
-                By.CSS_SELECTOR,
-                selector
-            ):
-                state = el.get_attribute("data-state")
+            try:
+                page = browser.new_page(
+                    locale="ru-RU",
+                    viewport={
+                        "width": 1365,
+                        "height": 900
+                    }
+                )
 
-                if state:
-                    try:
-                        data = json.loads(state)
-                        value = data.get("price")
+                response = page.goto(
+                    url,
+                    wait_until="domcontentloaded",
+                    timeout=60000
+                )
 
-                        if value:
-                            price = clean_price(str(value))
+                print(
+                    f"    📡 HTTP: "
+                    f"{response.status if response else 'нет ответа'}"
+                )
+
+                try:
+                    page.wait_for_timeout(3000)
+
+                    # Ждём появления одного из блоков цены
+                    page.locator(
+                        ", ".join(selectors)
+                    ).first.wait_for(
+                        state="attached",
+                        timeout=wait * 1000
+                    )
+
+                except PlaywrightTimeoutError:
+                    print("    ⚠️ Блок цены не найден за отведённое время")
+
+                body = page.locator("body").inner_text(
+                    timeout=10000
+                )
+
+                if (
+                    "Похоже, нет соединения" in body
+                    or "Инцидент:" in body
+                ):
+                    print("    🚫 Ozon вернул страницу ошибки")
+                    print(f"    📄 Текст: {body[:500]!r}")
+                    return None
+
+                # Ищем цену в известных блоках
+                for selector in selectors:
+                    elements = page.locator(selector)
+
+                    for i in range(min(elements.count(), 10)):
+                        element = elements.nth(i)
+
+                        text = element.inner_text(
+                            timeout=5000
+                        ).strip()
+
+                        print(
+                            f"    🔎 [{selector}]: {text[:200]!r}"
+                        )
+
+                        # Не принимаем произвольные числа за цену:
+                        # требуется символ рубля
+                        match = re.search(
+                            r"([\d\s\u00a0\u2009\u202f.,]+)\s*₽",
+                            text
+                        )
+
+                        if match:
+                            price = clean_price(match.group(1))
 
                             if price is not None:
                                 print(
                                     f"    💰 Цена Ozon: {price}"
                                 )
                                 return price
-                    except (ValueError, TypeError):
-                        pass
 
-                text = el.text.strip()
-                match = re.search(
+                # Дополнительный поиск в видимом тексте страницы
+                matches = re.findall(
                     r"([\d\s\u00a0\u2009\u202f.,]+)\s*₽",
-                    text
+                    body
                 )
 
-                if match:
-                    price = clean_price(match.group(1))
+                for raw_price in matches:
+                    price = clean_price(raw_price)
 
                     if price is not None:
+                        print(
+                            f"    💰 Цена из текста страницы: {price}"
+                        )
                         return price
 
-    except Exception as e:
-        print(f"    ⚠️ Ожидание цены Ozon: {e}")
+                print(f"    📄 Заголовок: {page.title()}")
+                print(f"    📄 Текст страницы: {body[:700]!r}")
 
-    # Диагностика: выясняем, что реально открылось
-    try:
-        title = sb.driver.title
-        body = sb.driver.find_element(
-            By.TAG_NAME, "body"
-        ).text
+                return None
 
-        print(f"    📄 Заголовок страницы: {title}")
-        print(f"    📄 Текст страницы: {body[:700]!r}")
+            finally:
+                browser.close()
 
     except Exception as e:
-        print(f"    ⚠️ Не удалось прочитать страницу: {e}")
+        print(
+            f"    ❌ Ошибка Playwright Ozon: "
+            f"{type(e).__name__}: {e}"
+        )
+        return None
 
-    return None
 
 
 

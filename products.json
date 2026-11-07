@@ -6,24 +6,6 @@
       "url": "https://www.divan.ru/product/divan-numo-mini-textile-yellow",
       "site": "divan.ru",
       "selector": "[data-testid='price']"
-    },
-    {
-      "name": "Шины-колесо.ру",
-      "url": "https://rnd.koleso.ru/catalog/tyres/cordiant/sno-max-7000/kordiant-sno-max-7000-185-65r15-t88--0---shipovannaya/",
-      "site": "koleso",
-      "selector": "meta[itemprop=\"price\"]"
-    },
-    {
-      "name": "Шины-вирбак",
-      "url": "https://www.virbacavto.ru/catalog/goods/shiny_legkovye-cordiant-1954106/",
-      "site": "virbac",
-      "selector": ".price"
-    },
-    {
-      "name": "Шины",
-      "url": " https://mosautoshina.ru/catalog/tyre/cordiant/sno-max-7000/185-65-15-88-T--/",
-      "site": "mosauto",
-      "selector": ".product-price"
     }
   ]
 }
